@@ -10,9 +10,10 @@ local win_w, win_h
 local spritesheet
 local shot_src
 local bullet_speed = 10
-local turret_bullet_speed = 5
+local turret_bullet_speed = 8
 local player_speed = 7
-local scale = 2
+local enemy_speed = 4
+local scale = 1.5
 
 local PLAYER = 1
 local BULLET = 2
@@ -161,6 +162,9 @@ function love.update(dt)
 
         if closest_player and dist_closest_player < 1000 / scale then
           turret.rot = math.atan2(closest_player.y - turret.y, closest_player.x - turret.x)
+
+          turret.dx = enemy_speed * math.cos(turret.rot)
+          turret.dy = enemy_speed * math.sin(turret.rot)
 
           local bullet = {
             x = turret.x,
@@ -311,15 +315,19 @@ function love.draw()
   --love.graphics.scale(sx, sy)
   love.graphics.translate(tx * scale, ty * scale)
   
+  local num_turrets = 0
   for i=1, #entities do
     local entity = entities[i]
     love.graphics.draw(spritesheet, entity.quad, entity.x * scale, entity.y * scale, entity.rot or 0, scale, scale, entity.w/scale, entity.h/scale)
+    if entity.type == TURRET then
+      num_turrets = num_turrets + 1
+    end
   end
   -- map:bump_draw(world, tx, ty, sx, sy) -- debug collision map
 
   love.graphics.reset()
   love.graphics.setBackgroundColor(0.15, 0.15, 0.15) -- have to reset bgcolor after a reset()
-  love.graphics.print("FPS: " .. tostring(love.timer.getFPS()), 10, 10)
+  love.graphics.print("FPS: " .. tostring(love.timer.getFPS()) .. ', Enemies: ' .. tostring(num_turrets), 10, 10)
 end
 
 function love.resize(w, h)
