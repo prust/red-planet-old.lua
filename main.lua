@@ -98,7 +98,7 @@ function love.load()
         local player = players[i]
         player.x = object.x
         player.y = object.y
-        world:add(player, player.x, player.y, 2, 2) -- w/h should be about 1.6 based on current scaling
+        world:add(player, player.x, player.y, player.w, player.h) -- w/h should be about 1.6 based on current scaling
         table.insert(entities, player)
       end
     elseif object.name == "enemy" then
@@ -113,7 +113,7 @@ function love.load()
         rot = 0,
         type = TURRET
       }
-      world:add(enemy, enemy.x, enemy.y, 2, 2) -- 2 isn't exactly right, scaling is weird; 1.6 is more accurate?
+      world:add(enemy, enemy.x, enemy.y, enemy.w, enemy.h) -- 2 isn't exactly right, scaling is weird; 1.6 is more accurate?
       table.insert(entities, enemy)
     end
   end
@@ -175,7 +175,7 @@ function love.update(dt)
           table.insert(entities, bullet)
 
           -- TODO: due to scaling it should be more than / 2...
-          world:add(bullet, bullet.x, bullet.y, bullet.w / 2, bullet.h / 2)
+          world:add(bullet, bullet.x, bullet.y, bullet.w, bullet.h)
 
           if (shot_src:isPlaying()) then
             shot_src:stop()
@@ -220,7 +220,7 @@ function love.update(dt)
       table.insert(entities, bullet)
 
       -- TODO: due to scaling it should be more than / 2...
-      world:add(bullet, bullet.x, bullet.y, bullet.w / 2, bullet.h / 2)
+      world:add(bullet, bullet.x, bullet.y, bullet.w, bullet.h)
     end
   end
 
