@@ -9,8 +9,10 @@ local player_quads, shot_quad, enemy_shot_quad
 local win_w, win_h
 local spritesheet
 local shot_src
-local bullet_speed = 2
-local turret_bullet_speed = 0.5
+local bullet_speed = 10
+local turret_bullet_speed = 5
+local player_speed = 7
+local scale = 2
 
 local PLAYER = 1
 local BULLET = 2
@@ -145,7 +147,6 @@ function love.update(dt)
     for i = 1, #entities do
       if entities[i].type == TURRET then
         local turret = entities[i]
-        local scale = 20
 
         -- rudimentary calc to determine which player is closest
         local dist_closest_player = 1000 / scale
@@ -195,6 +196,8 @@ function love.update(dt)
     end
 
     player.dx, player.dy = player.input:get('move')
+    player.dx = player.dx * player_speed
+    player.dy = player.dy * player_speed
     
     if player.input:pressed('shoot') then
       -- make shooting sound
@@ -294,25 +297,23 @@ end
 
 function love.draw()
   love.graphics.setColor( 255,255,255,255 )
-  sx = 20
-  sy = 20
   local sum_player_x = 0
   local sum_player_y = 0
   for i = 1, #players do
     sum_player_x = sum_player_x + players[i].x
     sum_player_y = sum_player_y + players[i].y
   end
-  tx = -(sum_player_x / #players) + ((win_w/2) / sx)
-  ty = -(sum_player_y / #players) + ((win_h/2) / sy)
-  map:draw(tx, ty, sx, sy)
+  tx = -(sum_player_x / #players) + ((win_w/2) / scale)
+  ty = -(sum_player_y / #players) + ((win_h/2) / scale)
+  map:draw(tx, ty, scale, scale)
   
   love.graphics.setColor(255, 255, 225, 255)
   --love.graphics.scale(sx, sy)
-  love.graphics.translate(tx * sx, ty * sy)
+  love.graphics.translate(tx * scale, ty * scale)
   
   for i=1, #entities do
     local entity = entities[i]
-    love.graphics.draw(spritesheet, entity.quad, entity.x * sx, entity.y * sy, entity.rot or 0, 2, 2, entity.w/2, entity.h/2)
+    love.graphics.draw(spritesheet, entity.quad, entity.x * scale, entity.y * scale, entity.rot or 0, scale, scale, entity.w/scale, entity.h/scale)
   end
   -- map:bump_draw(world, tx, ty, sx, sy) -- debug collision map
 
