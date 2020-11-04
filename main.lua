@@ -26,9 +26,9 @@ local win_w, win_h
 local spritesheet
 local shot_src
 local bullet_speed = 10
-local turret_bullet_speed = 8
+local turret_bullet_speed = 4 -- medium; 8 is "hard"
 local player_speed = 7
-local enemy_speed = 4
+local enemy_speed = 2 -- medium; 4 is "hard"
 local scale = 1.5
 
 local PLAYER = 1
