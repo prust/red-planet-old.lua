@@ -1,3 +1,19 @@
+-- Generic red planet game engine
+-- Initially for space shooters, then top-down shooters & eventually platformer shooters
+
+-- TODO:
+-- Up to 5 players (4 controllers + keyboard/mouse)
+-- 3 lives
+-- hearts/health/healing ?
+-- shot energy that deplets & recharges
+-- shield energy that depletes & recharges
+-- enemy fire in bursts
+-- Collectables (keys/doors, but custom text/images?)
+-- Parameterized enemy types (turrets vs moving; speeds, shot intervals)
+-- Win state (get to end w/ required collectables?)
+-- Mini-map
+-- fog/discovered state
+
 bump = require 'libs/bump'
 sti = require 'libs/sti'
 anim8 = require 'libs/anim8'
@@ -56,6 +72,7 @@ function love.load()
       rot = 0,
       quad = player_quads[i],
       type = PLAYER,
+      health = 3,
       input = baton.new({
         controls = {
           move_left = {'key:a', 'axis:leftx-', 'button:dpleft'},
@@ -253,14 +270,18 @@ function love.update(dt)
         end
       elseif entity.type == ENEMY_BULLET then
         if col.other.type == PLAYER then
-          local player_ix = indexOf(entities, col.other)
-          table.insert(entity_ix_to_remove, player_ix)
-          table.insert(entities_to_remove, col.other)
+          col.other.health = col.other.health - 1
+          if col.other.health <= 0 then
+            local player_ix = indexOf(entities, col.other)
+            table.insert(entity_ix_to_remove, player_ix)
+            table.insert(entities_to_remove, col.other)
 
-          -- also remove player from players table
-          table.remove(players, indexOf(players, col.other))
-          break
-        elseif col.other.type ~= TURRET then
+            -- also remove player from players table
+            table.remove(players, indexOf(players, col.other))
+          end
+        end
+        
+        if col.other.type ~= TURRET then
           table.insert(entity_ix_to_remove, i)
           table.insert(entities_to_remove, entity)
           break
@@ -327,7 +348,13 @@ function love.draw()
 
   love.graphics.reset()
   love.graphics.setBackgroundColor(0.15, 0.15, 0.15) -- have to reset bgcolor after a reset()
-  love.graphics.print("FPS: " .. tostring(love.timer.getFPS()) .. ', Enemies: ' .. tostring(num_turrets), 10, 10)
+  local str = "FPS: " .. tostring(love.timer.getFPS()) .. ', Enemies: ' .. tostring(num_turrets)
+  local health = {}
+  for i=1, #players do
+    table.insert(health, players[i].health)
+  end
+  str = str .. ', Lives: ' .. table.concat(health, ",")
+  love.graphics.print(str, 10, 10)
 end
 
 function love.resize(w, h)
