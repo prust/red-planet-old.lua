@@ -76,7 +76,7 @@ function Map:init(path, plugins, ox, oy)
 		self:loadPlugins(plugins)
 	end
 
-	self:resize()
+  self:resize()
 	self.objects       = {}
 	self.tiles         = {}
 	self.tileInstances = {}

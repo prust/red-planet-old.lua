@@ -1,10 +1,9 @@
 -- Generic red planet game engine
 -- Initially for space shooters, then top-down shooters & eventually platformer shooters
 
--- TODO:
+-- IDEAS:
 -- Up to 5 players (4 controllers + keyboard/mouse)
--- 3 lives
--- hearts/health/healing ?
+-- healing
 -- shot energy that deplets & recharges
 -- shield energy that depletes & recharges
 -- enemy fire in bursts
@@ -13,6 +12,9 @@
 -- Win state (get to end w/ required collectables?)
 -- Mini-map
 -- fog/discovered state
+-- turret-type enemies that don't move
+-- heat-seeking bullets/missiles
+-- intelligent aiming enemies (take into account your speed & aim where you'll be)
 
 bump = require 'libs/bump'
 sti = require 'libs/sti'
@@ -26,10 +28,11 @@ local win_w, win_h
 local spritesheet
 local shot_src
 local bullet_speed = 10
-local turret_bullet_speed = 4 -- medium; 8 is "hard"
+local turret_bullet_speed = 8 -- 4=med; 8=hard
 local player_speed = 7
-local enemy_speed = 2 -- medium; 4 is "hard"
-local scale = 1.5
+local enemy_speed = 4 -- 2=med; 4=hard
+local enemy_starting_health = 1
+local scale = 0.8
 
 local PLAYER = 1
 local BULLET = 2
@@ -43,7 +46,9 @@ local players
 
 function love.load()
   love.window.setMode(0, 0) -- 0 sets to width/height of desktop
-  love.graphics.setDefaultFilter('nearest')
+  -- nearest neighbor makes player look ugly at most rotations
+  -- BUT if I turn it off & do anti-aliasing, then I need 1px padding around sprites!
+  love.graphics.setDefaultFilter('nearest') 
   win_w, win_h = love.graphics.getDimensions()
   spritesheet = love.graphics.newImage('images/spritesheet.png')
   player_quads = {
@@ -86,7 +91,10 @@ function love.load()
           aim_up = {'axis:righty-', 'key:up'},
           aim_down = {'axis:righty+', 'key:down'},
       
-          shoot = {'mouse:1', 'axis:triggerright+', 'key:ralt'}
+          shoot = {'mouse:1', 'axis:triggerright+', 'key:ralt'},
+          zoom_in = {'button:rightshoulder'},
+          zoom_out = {'button:leftshoulder'},
+          quit = {'key:escape'}
         },
         pairs = {
           move = {'move_left', 'move_right', 'move_up', 'move_down'},
@@ -104,7 +112,9 @@ function love.load()
 
   pcall(playRandomSong)
 
-  level = "maps/level-1.lua"
+  -- find-and-replace regex to transform .tsv from http://donjon.bin.sh/d20/dungeon/index.cgi
+  -- into lua tiled format: [A-Z]+\t -> "0, "
+  level = "maps/level-2.lua"
   
   world = bump.newWorld(64)
   map = sti(level, { "bump" })
@@ -127,6 +137,7 @@ function love.load()
         dy = 0,
         w = 16,
         h = 16,
+        health = enemy_starting_health,
         quad = turret_quad,
         rot = 0,
         type = TURRET
@@ -137,6 +148,9 @@ function love.load()
   end
   
   map:removeLayer("Objects")
+
+  love.window.setFullscreen(true)
+  love.mouse.setVisible(false)
 end
 
 function playRandomSong()
@@ -195,7 +209,6 @@ function love.update(dt)
           }
           table.insert(entities, bullet)
 
-          -- TODO: due to scaling it should be more than / 2...
           world:add(bullet, bullet.x, bullet.y, bullet.w, bullet.h)
 
           if (shot_src:isPlaying()) then
@@ -219,6 +232,18 @@ function love.update(dt)
     player.dx, player.dy = player.input:get('move')
     player.dx = player.dx * player_speed
     player.dy = player.dy * player_speed
+
+    if player.input:pressed('zoom_in') then
+      scale = scale * 1.5
+    end
+
+    if player.input:pressed('zoom_out') then
+      scale = scale / 1.5
+    end
+
+    if (player.input:pressed('quit')) then
+      love.event.quit()
+    end
     
     if player.input:pressed('shoot') then
       -- make shooting sound
@@ -259,11 +284,15 @@ function love.update(dt)
       local col = cols[j]
       if entity.type == BULLET then
         if col.other.type == TURRET then
-          local turret_ix = indexOf(entities, col.other)
-          table.insert(entity_ix_to_remove, turret_ix)
-          table.insert(entities_to_remove, col.other)
-          break
-        elseif col.other.type ~= PLAYER then
+          col.other.health = col.other.health - 1
+          if col.other.health <= 0 then
+            local turret_ix = indexOf(entities, col.other)
+            table.insert(entity_ix_to_remove, turret_ix)
+            table.insert(entities_to_remove, col.other)
+          end
+        end
+
+        if col.other.type ~= PLAYER then
           table.insert(entity_ix_to_remove, i)
           table.insert(entities_to_remove, entity)
           break
@@ -339,7 +368,11 @@ function love.draw()
   local num_turrets = 0
   for i=1, #entities do
     local entity = entities[i]
-    love.graphics.draw(spritesheet, entity.quad, entity.x * scale, entity.y * scale, entity.rot or 0, scale, scale, entity.w/scale, entity.h/scale)
+    -- + entity.w / 2
+    -- + entity.h / 2
+    -- scale * 
+    -- scale *
+    love.graphics.draw(spritesheet, entity.quad, scale * (entity.x + entity.w / 2), scale * (entity.y + entity.h / 2), entity.rot or 0, scale, scale, entity.w / 2,  entity.h / 2)
     if entity.type == TURRET then
       num_turrets = num_turrets + 1
     end
@@ -358,7 +391,7 @@ function love.draw()
 end
 
 function love.resize(w, h)
-  map:resize(w, h)
+  map:resize(w*8, h*8)
   win_w = w
   win_h = h
 end
