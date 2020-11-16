@@ -354,7 +354,7 @@ function getCollType(item, other)
 end
 
 function love.draw()
-  love.graphics.setColor( 255,255,255,255 )
+  love.graphics.setColor(1, 1, 1, 1)
   local sum_player_x = 0
   local sum_player_y = 0
   for i = 1, #players do
@@ -363,6 +363,16 @@ function love.draw()
   end
   tx = -(sum_player_x / #players) + ((win_w/2) / scale)
   ty = -(sum_player_y / #players) + ((win_h/2) / scale)
+
+  -- this is a hacky work-around for a bug with the STI canvas size clipping issue at far-out zooms
+  -- it keeps the map anchored in the top-left of the screen at far-out zooms
+  if tx > 0 then
+    tx = 0
+  end
+  if ty > 0 then
+    ty = 0
+  end
+  
   map:draw(tx, ty, scale, scale)
   
   love.graphics.setColor(255, 255, 225, 255)
@@ -372,10 +382,6 @@ function love.draw()
   local num_turrets = 0
   for i=1, #entities do
     local entity = entities[i]
-    -- + entity.w / 2
-    -- + entity.h / 2
-    -- scale * 
-    -- scale *
     love.graphics.draw(spritesheet, entity.quad, scale * (entity.x + entity.w / 2), scale * (entity.y + entity.h / 2), entity.rot or 0, scale, scale, entity.w / 2,  entity.h / 2)
     if entity.type == TURRET then
       num_turrets = num_turrets + 1
@@ -385,13 +391,14 @@ function love.draw()
 
   love.graphics.reset()
   love.graphics.setBackgroundColor(0.15, 0.15, 0.15) -- have to reset bgcolor after a reset()
-  local str = "FPS: " .. tostring(love.timer.getFPS()) .. ', Enemies: ' .. tostring(num_turrets)
-  local health = {}
+  love.graphics.print("FPS: " .. tostring(love.timer.getFPS()) .. ', Enemies: ' .. tostring(num_turrets), 10, 10)
+  
   for i=1, #players do
-    table.insert(health, players[i].health)
+    local player = players[i]
+    for x = 1, player.health do
+      love.graphics.draw(spritesheet, player.quad, -10 + 20 * x, 10 + 20 * i, 0, 1, 1)
+    end
   end
-  str = str .. ', Lives: ' .. table.concat(health, ",")
-  love.graphics.print(str, 10, 10)
 end
 
 function love.resize(w, h)
