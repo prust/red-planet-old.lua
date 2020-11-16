@@ -28,9 +28,9 @@ local win_w, win_h
 local spritesheet
 local shot_src
 local bullet_speed = 10
-local turret_bullet_speed = 8 -- 4=med; 8=hard
+local turret_bullet_speed = 4 -- 4=med; 8=hard
 local player_speed = 7
-local enemy_speed = 4 -- 2=med; 4=hard
+local enemy_speed = 2 -- 2=med; 4=hard
 local enemy_starting_health = 1
 local scale = 0.8
 
@@ -53,7 +53,8 @@ function love.load()
   spritesheet = love.graphics.newImage('images/spritesheet.png')
   player_quads = {
     love.graphics.newQuad(5 * 16, 0, 16, 16, spritesheet:getDimensions()),
-    love.graphics.newQuad(6 * 16, 0, 16, 16, spritesheet:getDimensions())
+    love.graphics.newQuad(6 * 16, 0, 16, 16, spritesheet:getDimensions()),
+    love.graphics.newQuad(5 * 16, 1 * 16, 16, 16, spritesheet:getDimensions())
   }
   turret_quad = love.graphics.newQuad(9 * 16, 0, 16, 16, spritesheet:getDimensions())
   shot_quad = love.graphics.newQuad(8 * 16, 0, 2, 2, spritesheet:getDimensions())
@@ -233,12 +234,15 @@ function love.update(dt)
     player.dx = player.dx * player_speed
     player.dy = player.dy * player_speed
 
-    if player.input:pressed('zoom_in') then
-      scale = scale * 1.5
-    end
+    -- only first player can zoom in/out
+    if i == 1 then
+      if player.input:pressed('zoom_in') then
+        scale = scale * 1.5
+      end
 
-    if player.input:pressed('zoom_out') then
-      scale = scale / 1.5
+      if player.input:pressed('zoom_out') then
+        scale = scale / 1.5
+      end
     end
 
     if (player.input:pressed('quit')) then
