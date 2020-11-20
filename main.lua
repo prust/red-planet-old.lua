@@ -53,11 +53,7 @@ function love.load()
   love.graphics.setDefaultFilter('nearest') 
   win_w, win_h = love.graphics.getDimensions()
   
-  if level == 3 then
-    spritesheet = love.graphics.newImage('images/spritesheet-jimmy.png')
-  else
-    spritesheet = love.graphics.newImage('images/spritesheet.png')
-  end
+  spritesheet = love.graphics.newImage('images/spritesheet-jimmy.png')
 
   player_quads = {
     love.graphics.newQuad(5 * 16, 0, 16, 16, spritesheet:getDimensions()),
