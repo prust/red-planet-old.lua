@@ -90,7 +90,7 @@ return {
     {
       type = "objectgroup",
       id = 3,
-      name = "Object Layer 1",
+      name = "Objects",
       visible = true,
       opacity = 1,
       offsetx = 0,
@@ -294,7 +294,9 @@ return {
       opacity = 1,
       offsetx = 0,
       offsety = 0,
-      properties = {},
+      properties = {
+        ["collidable"] = true
+      },
       encoding = "lua",
       data = {
         77, 78, 82, 82, 82, 82, 82, 82, 82, 6, 82, 6, 82, 82, 82, 82, 78, 82, 82, 82, 82, 82, 82, 82, 82, 82, 78, 82, 82, 79,
