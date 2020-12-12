@@ -21,8 +21,10 @@ sti = require 'libs/sti'
 anim8 = require 'libs/anim8'
 baton = require 'libs/baton'
 
+local level = 2
+
 local entities = {}
-local map, world, level
+local map, world
 local player_quads, shot_quad, enemy_shot_quad
 local win_w, win_h
 local spritesheet
@@ -50,7 +52,13 @@ function love.load()
   -- BUT if I turn it off & do anti-aliasing, then I need 1px padding around sprites!
   love.graphics.setDefaultFilter('nearest') 
   win_w, win_h = love.graphics.getDimensions()
-  spritesheet = love.graphics.newImage('images/spritesheet.png')
+  
+  if level == 3 then
+    spritesheet = love.graphics.newImage('images/spritesheet-jimmy.png')
+  else
+    spritesheet = love.graphics.newImage('images/spritesheet.png')
+  end
+
   player_quads = {
     love.graphics.newQuad(5 * 16, 0, 16, 16, spritesheet:getDimensions()),
     love.graphics.newQuad(6 * 16, 0, 16, 16, spritesheet:getDimensions()),
@@ -94,8 +102,7 @@ function love.load()
       
           shoot = {'mouse:1', 'axis:triggerright+', 'key:ralt'},
           zoom_in = {'button:rightshoulder'},
-          zoom_out = {'button:leftshoulder'},
-          quit = {'key:escape'}
+          zoom_out = {'button:leftshoulder'}
         },
         pairs = {
           move = {'move_left', 'move_right', 'move_up', 'move_down'},
@@ -114,12 +121,9 @@ function love.load()
   pcall(playRandomSong)
 
   -- find-and-replace regex to transform .tsv from http://donjon.bin.sh/d20/dungeon/index.cgi
-  -- into lua tiled format: [A-Z]+\t -> "0, "
-  level = "maps/level-2.lua"
-  
+  -- into lua tiled format: [A-Z]+\t -> "0, " 
   world = bump.newWorld(64)
-  map = sti(level, { "bump" })
-  map:bump_init(world)
+  map = sti("maps/level-" .. tostring(level) .. ".lua", { "bump" })
   
   for k, object in pairs(map.objects) do
     if object.name == "player_spawn" then
@@ -149,6 +153,8 @@ function love.load()
   end
   
   map:removeLayer("Objects")
+
+  map:bump_init(world)
 
   love.window.setFullscreen(true)
   love.mouse.setVisible(false)
@@ -244,10 +250,6 @@ function love.update(dt)
         scale = scale / 1.5
       end
     end
-
-    if (player.input:pressed('quit')) then
-      love.event.quit()
-    end
     
     if player.input:pressed('shoot') then
       -- make shooting sound
@@ -258,8 +260,8 @@ function love.update(dt)
 
       -- create bullet going in the right direction
       local bullet = {
-        x = player.x,-- + player.w/2,
-        y = player.y,-- + player.h/2,
+        x = player.x + player.w/2,
+        y = player.y + player.h/2,
         dx = bullet_speed * math.cos(player.rot),
         dy = bullet_speed * math.sin(player.rot),
         w = 2,
@@ -387,7 +389,7 @@ function love.draw()
       num_turrets = num_turrets + 1
     end
   end
-  -- map:bump_draw(world, tx, ty, sx, sy) -- debug collision map
+  -- map:bump_draw(world, tx, ty, sx, sy) -- debug the collision map
 
   love.graphics.reset()
   love.graphics.setBackgroundColor(0.15, 0.15, 0.15) -- have to reset bgcolor after a reset()
@@ -405,4 +407,10 @@ function love.resize(w, h)
   map:resize(w*8, h*8)
   win_w = w
   win_h = h
+end
+
+function love.keypressed(key, scancode, isrepeat)
+  if key == "escape" then
+    love.event.quit()
+  end
 end
