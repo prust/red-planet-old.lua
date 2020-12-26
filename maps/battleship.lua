@@ -24,7 +24,7 @@ return {
       spacing = 0,
       margin = 0,
       columns = 20,
-      image = "../../Battleship/battleship hexagons.png",
+      image = "../images/battleship hexagons.png",
       imagewidth = 332,
       imageheight = 500,
       tileoffset = {
