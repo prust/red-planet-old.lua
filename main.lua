@@ -1,6 +1,23 @@
 -- Generic red planet game engine
 -- Initially for space shooters, then top-down shooters & eventually platformer shooters
 
+-- TODO:
+-- Start with $0
+-- Left Panel with each kind of ships & number available, 2 missile launchers available, 1 factory available
+   -- Start with 2 4-width ships, 3 3-width ships and 4 2-width ships
+-- click once to select, click on the map to place -- have to place all things
+-- factory & missile launchers need to be "your" side
+-- ships cost 3, 6, 9
+-- guns include small radar by default
+-- ships need to be upgraded to get radar
+
+-- once all players are done, 
+
+-- Place ships by clicking
+-- Scroll wheel to zoom, Cmd/Ctrl + -
+-- Arrows keys to scroll
+-- Mini versions of ships in top-left
+
 -- IDEAS:
 -- Up to 5 players (4 controllers + keyboard/mouse)
 -- healing
@@ -50,6 +67,8 @@ local client = nil
 local client_connected = false
 local tile_x = -1
 local tile_y = -1
+local ships = {}
+local ghosted_ship = nil
 
 -- this slows the game; only run it when you're ready to drop into debugging
 -- require("mobdebug").start()
@@ -61,16 +80,20 @@ function love.load()
   love.graphics.setDefaultFilter('nearest') 
   win_w, win_h = love.graphics.getDimensions()
   
-  spritesheet = love.graphics.newImage('images/spritesheet-jimmy.png')
-
-  player_quads = {
-    love.graphics.newQuad(5 * 16, 0, 16, 16, spritesheet:getDimensions()),
-    love.graphics.newQuad(6 * 16, 0, 16, 16, spritesheet:getDimensions()),
-    love.graphics.newQuad(5 * 16, 1 * 16, 16, 16, spritesheet:getDimensions())
+  spritesheet = love.graphics.newImage('images/battleship hexagons.png')
+  ship_quads = {
+    love.graphics.newQuad(0, 7 * 16, 4 * 16, 16, spritesheet:getDimensions()),
+    love.graphics.newQuad(0, 8 * 16, 3 * 16, 16, spritesheet:getDimensions()),
+    love.graphics.newQuad(0, 9 * 16, 2 * 16, 16, spritesheet:getDimensions())
   }
-  turret_quad = love.graphics.newQuad(9 * 16, 0, 16, 16, spritesheet:getDimensions())
-  shot_quad = love.graphics.newQuad(8 * 16, 0, 2, 2, spritesheet:getDimensions())
-  enemy_shot_quad = love.graphics.newQuad(8 * 16, 1 * 16, 2, 2, spritesheet:getDimensions())
+  -- player_quads = {
+  --   love.graphics.newQuad(5 * 16, 0, 16, 16, spritesheet:getDimensions()),
+  --   love.graphics.newQuad(6 * 16, 0, 16, 16, spritesheet:getDimensions()),
+  --   love.graphics.newQuad(5 * 16, 1 * 16, 16, 16, spritesheet:getDimensions())
+  -- }
+  -- turret_quad = love.graphics.newQuad(9 * 16, 0, 16, 16, spritesheet:getDimensions())
+  -- shot_quad = love.graphics.newQuad(8 * 16, 0, 2, 2, spritesheet:getDimensions())
+  -- enemy_shot_quad = love.graphics.newQuad(8 * 16, 1 * 16, 2, 2, spritesheet:getDimensions())
   love.graphics.setBackgroundColor(0.15, 0.15, 0.15)
 
   local joysticks = love.joystick.getJoysticks()
@@ -88,7 +111,7 @@ function love.load()
       w = 16,
       h = 16,
       rot = 0,
-      quad = player_quads[i],
+      quad = null, -- player_quads[i],
       type = PLAYER,
       health = 3,
       input = baton.new({
@@ -403,25 +426,53 @@ function love.draw()
   end
   -- map:bump_draw(world, tx, ty, sx, sy) -- debug the collision map
 
+  if ghosted_ship then
+    local ghost_x, ghost_y = map:convertTileToPixel(ghosted_ship.tile_x, ghosted_ship.tile_y)
+    -- TODO:
+      -- I need to actually draw at the correct scale
+      -- and probably need to multiply by the scale but maybe the map is doing that for me? it's not rendering in *quite* the right hex...
+      -- then on click I need to create a real permanent Entity out of the ghost and tell the server where it is
+    -- ghost_x = ghost_x * scale
+    -- ghost_y = ghost_y * scale
+    love.graphics.draw(spritesheet, ghosted_ship.quad, ghost_x, ghost_y)
+
+  end
+
   love.graphics.reset()
   love.graphics.setBackgroundColor(0.15, 0.15, 0.15) -- have to reset bgcolor after a reset()
-  love.graphics.print("FPS: " .. tostring(love.timer.getFPS()) .. ', Enemies: ' .. tostring(num_turrets), 10, 10)
+
+  -- draw sidebar
+  love.graphics.setColor(0.2, 0.2, 0.2)
+  love.graphics.rectangle('fill', 0, 0, 300, win_h)
+  love.graphics.setColor(0.3, 0.3, 0.3)
+  love.graphics.rectangle('line', 0, 0, 300, win_h)
+
+  love.graphics.setColor(0.6, 0.6, 0.6)
+
+  love.graphics.print("FPS: " .. tostring(love.timer.getFPS()), 10, 10)
   if server then
-    love.graphics.print("SERVER MODE", 10, 50)
+    love.graphics.print("SERVER MODE", 10, 25)
   end
 
   if client_connected then
-    love.graphics.print("Connected.", 10, 50)
+    love.graphics.print("Connected.", 10, 25)
   elseif client then
-    love.graphics.print("Connecting...", 10, 50)
+    love.graphics.print("Connecting...", 10, 25)
   end
+
+  love.graphics.print('Place your ships:', 10, 50)
   
-  for i=1, #players do
-    local player = players[i]
-    for x = 1, player.health do
-      love.graphics.draw(spritesheet, player.quad, -10 + 20 * x, 10 + 20 * i, 0, 1, 1)
-    end
-  end
+  love.graphics.draw(spritesheet, ship_quads[1], 10, 75)
+  love.graphics.draw(spritesheet, ship_quads[2], 10, 90)
+  love.graphics.draw(spritesheet, ship_quads[3], 10, 105)
+
+  -- draw a ship for each unit of health the player has
+  -- for i=1, #players do
+  --   local player = players[i]
+  --   for x = 1, player.health do
+  --     love.graphics.draw(spritesheet, player.quad, -10 + 20 * x, 10 + 20 * i, 0, 1, 1)
+  --   end
+  -- end
 end
 
 function love.resize(w, h)
@@ -436,28 +487,37 @@ function love.mousemoved(x, y, dx, dy, istouch)
   new_tile_y = math.floor(new_tile_y)
   if new_tile_x >= 1 and new_tile_y >=1 then
     if new_tile_x ~= tile_x or new_tile_y ~= tile_y then
-      setTile(new_tile_x, new_tile_y)
-      
-      if server then
-        server:sendToAll('setTile', {tile_x=new_tile_x, tile_y=new_tile_y})
+      if not ghosted_ship then
+        ghosted_ship = {
+          tile_x = new_tile_x,
+          tile_y = new_tile_y,
+          quad = ship_quads[1]
+        }
+      else
+        ghosted_ship.tile_x = new_tile_x
+        ghosted_ship.tile_y = new_tile_y
       end
+      
+      -- if server then
+      --   server:sendToAll('setTile', {tile_x=new_tile_x, tile_y=new_tile_y})
+      -- end
     end
   end
 end
 
 function setTile(new_tile_x, new_tile_y)
   if tile_x > -1 and tile_y > -1 then
-    map:setLayerTile('Tile Layer 1', math.floor(tile_x), math.floor(tile_y), 1)
+    map:setLayerTile('Terrain', math.floor(tile_x), math.floor(tile_y), 1)
   end
 
-  map:setLayerTile('Tile Layer 1', math.floor(new_tile_x), math.floor(new_tile_y), 2)
+  map:setLayerTile('Terrain', math.floor(new_tile_x), math.floor(new_tile_y), 2)
   tile_x = new_tile_x
   tile_y = new_tile_y
 end
 
 -- function love.mousemoved(x, y, dx, dy, istouch)
 --   local tile_x, tile_y = map:convertPixelToTile(x, y)
---   map:setLayerTile('Tile Layer 1', tile_x, tile_y, 2)
+--   map:setLayerTile('Terrain', tile_x, tile_y, 2)
 -- end
 
 function love.keypressed(key, scancode, isrepeat)
@@ -481,7 +541,7 @@ function love.keypressed(key, scancode, isrepeat)
   if key == 'c' then
     -- Creating a new client on localhost:22122
     -- to connect to IP addr: newClient("198.51.100.0", 22122)
-    client = sock.newClient("localhost", 22122)    
+    client = sock.newClient("localhost", 22122) -- 10.0.0.93", 22122)    
     client:setSerialization(bitser.dumps, bitser.loads)
 
     -- Called when a connection is made to the server
