@@ -4,7 +4,7 @@
 -- IDEAS:
 -- Up to 5 players (4 controllers + keyboard/mouse)
 -- healing
--- shot energy that deplets & recharges
+-- shot energy that depletes & recharges
 -- shield energy that depletes & recharges
 -- enemy fire in bursts
 -- Collectables (keys/doors, but custom text/images?)
@@ -20,6 +20,8 @@ bump = require 'libs/bump'
 sti = require 'libs/sti'
 anim8 = require 'libs/anim8'
 baton = require 'libs/baton'
+sock = require 'libs/sock'
+bitser = require "libs/bitser"
 
 local level = 2
 
@@ -34,7 +36,7 @@ local turret_bullet_speed = 4 -- 4=med; 8=hard
 local player_speed = 7
 local enemy_speed = 2 -- 2=med; 4=hard
 local enemy_starting_health = 1
-local scale = 0.8
+local scale = 1.5
 
 local PLAYER = 1
 local BULLET = 2
@@ -42,6 +44,12 @@ local TURRET = 3
 local ENEMY_BULLET = 4
 
 local players
+
+local server = nil
+local client = nil
+local client_connected = false
+local tile_x = -1
+local tile_y = -1
 
 -- this slows the game; only run it when you're ready to drop into debugging
 -- require("mobdebug").start()
@@ -53,11 +61,7 @@ function love.load()
   love.graphics.setDefaultFilter('nearest') 
   win_w, win_h = love.graphics.getDimensions()
   
-  if level == 3 then
-    spritesheet = love.graphics.newImage('images/spritesheet-jimmy.png')
-  else
-    spritesheet = love.graphics.newImage('images/spritesheet.png')
-  end
+  spritesheet = love.graphics.newImage('images/spritesheet-jimmy.png')
 
   player_quads = {
     love.graphics.newQuad(5 * 16, 0, 16, 16, spritesheet:getDimensions()),
@@ -123,7 +127,7 @@ function love.load()
   -- find-and-replace regex to transform .tsv from http://donjon.bin.sh/d20/dungeon/index.cgi
   -- into lua tiled format: [A-Z]+\t -> "0, " 
   world = bump.newWorld(64)
-  map = sti("maps/level-" .. tostring(level) .. ".lua", { "bump" })
+  map = sti("maps/battleship.lua", { "bump" })
   
   for k, object in pairs(map.objects) do
     if object.name == "player_spawn" then
@@ -131,7 +135,7 @@ function love.load()
         local player = players[i]
         player.x = object.x
         player.y = object.y
-        world:add(player, player.x, player.y, player.w, player.h) -- w/h should be about 1.6 based on current scaling
+        world:add(player, player.x, player.y, player.w, player.h)
         table.insert(entities, player)
       end
     elseif object.name == "enemy" then
@@ -147,17 +151,17 @@ function love.load()
         rot = 0,
         type = TURRET
       }
-      world:add(enemy, enemy.x, enemy.y, enemy.w, enemy.h) -- 2 isn't exactly right, scaling is weird; 1.6 is more accurate?
+      world:add(enemy, enemy.x, enemy.y, enemy.w, enemy.h)
       table.insert(entities, enemy)
     end
   end
   
-  map:removeLayer("Objects")
+  --map:removeLayer("Objects")
 
   map:bump_init(world)
 
-  love.window.setFullscreen(true)
-  love.mouse.setVisible(false)
+--  love.window.setFullscreen(true)
+  -- love.mouse.setVisible(false)
 end
 
 function playRandomSong()
@@ -224,6 +228,14 @@ function love.update(dt)
           shot_src:play()
         end
       end
+    end
+
+    if server then
+      server:update()
+    end
+
+    if client then
+      client:update()
     end
   end
 
@@ -394,6 +406,15 @@ function love.draw()
   love.graphics.reset()
   love.graphics.setBackgroundColor(0.15, 0.15, 0.15) -- have to reset bgcolor after a reset()
   love.graphics.print("FPS: " .. tostring(love.timer.getFPS()) .. ', Enemies: ' .. tostring(num_turrets), 10, 10)
+  if server then
+    love.graphics.print("SERVER MODE", 10, 50)
+  end
+
+  if client_connected then
+    love.graphics.print("Connected.", 10, 50)
+  elseif client then
+    love.graphics.print("Connecting...", 10, 50)
+  end
   
   for i=1, #players do
     local player = players[i]
@@ -409,8 +430,89 @@ function love.resize(w, h)
   win_h = h
 end
 
+function love.mousemoved(x, y, dx, dy, istouch)
+  local new_tile_x, new_tile_y = map:convertPixelToTile(x / scale, y / scale)
+  new_tile_x = math.floor(new_tile_x)
+  new_tile_y = math.floor(new_tile_y)
+  if new_tile_x >= 1 and new_tile_y >=1 then
+    if new_tile_x ~= tile_x or new_tile_y ~= tile_y then
+      setTile(new_tile_x, new_tile_y)
+      
+      if server then
+        server:sendToAll('setTile', {tile_x=new_tile_x, tile_y=new_tile_y})
+      end
+    end
+  end
+end
+
+function setTile(new_tile_x, new_tile_y)
+  if tile_x > -1 and tile_y > -1 then
+    map:setLayerTile('Tile Layer 1', math.floor(tile_x), math.floor(tile_y), 1)
+  end
+
+  map:setLayerTile('Tile Layer 1', math.floor(new_tile_x), math.floor(new_tile_y), 2)
+  tile_x = new_tile_x
+  tile_y = new_tile_y
+end
+
+-- function love.mousemoved(x, y, dx, dy, istouch)
+--   local tile_x, tile_y = map:convertPixelToTile(x, y)
+--   map:setLayerTile('Tile Layer 1', tile_x, tile_y, 2)
+-- end
+
 function love.keypressed(key, scancode, isrepeat)
   if key == "escape" then
     love.event.quit()
+  end
+
+  if key == 's' then
+    -- Creating a server on any IP, port 22122
+    server = sock.newServer("*", 22122)
+    server:setSerialization(bitser.dumps, bitser.loads)
+
+    -- Called when someone connects to the server
+    server:on("connect", function(data, client)
+        -- Send a message back to the connected client
+        local msg = "Hello from the server!"
+        client:send("hello", msg)
+    end)
+  end
+
+  if key == 'c' then
+    -- Creating a new client on localhost:22122
+    -- to connect to IP addr: newClient("198.51.100.0", 22122)
+    client = sock.newClient("localhost", 22122)    
+    client:setSerialization(bitser.dumps, bitser.loads)
+
+    -- Called when a connection is made to the server
+    client:on("connect", function(data)
+        print("Client connected to the server.")
+    end)
+    
+    -- Called when the client disconnects from the server
+    client:on("disconnect", function(data)
+        print("Client disconnected from the server.")
+    end)
+
+    client:on('setTile', function(data)
+      setTile(data.tile_x, data.tile_y)
+    end)
+
+    -- Custom callback, called whenever you send the event from the server
+    client:on("hello", function(msg)
+        print("The server replied: " .. msg)
+        client_connected = true
+    end)
+
+    client:connect()
+    
+    --  You can send different types of data
+    client:send("greeting", "Hello, my name is Inigo Montoya.")
+    client:send("isShooting", true)
+    client:send("bulletsLeft", 1)
+    client:send("position", {
+        x = 465.3,
+        y = 50,
+    })
   end
 end

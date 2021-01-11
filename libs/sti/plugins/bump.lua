@@ -1,7 +1,7 @@
 --- Bump.lua plugin for STI
 -- @module bump.lua
 -- @author David Serrano (BobbyJones|FrenchFryLord)
--- @copyright 2016
+-- @copyright 2019
 -- @license MIT/X11
 
 local lg = require((...):gsub('plugins.bump', 'graphics'))
@@ -9,7 +9,7 @@ local lg = require((...):gsub('plugins.bump', 'graphics'))
 return {
 	bump_LICENSE        = "MIT/X11",
 	bump_URL            = "https://github.com/karai17/Simple-Tiled-Implementation",
-	bump_VERSION        = "3.1.6.1",
+	bump_VERSION        = "3.1.7.1",
 	bump_DESCRIPTION    = "Bump hooks for STI.",
 
 	--- Adds each collidable tile to the Bump world.
@@ -29,13 +29,15 @@ return {
 							for _, object in ipairs(tile.objectGroup.objects) do
 								if object.properties.collidable == true then
 									local t = {
+										name       = object.name,
+										type       = object.type,
 										x          = instance.x + map.offsetx + object.x,
 										y          = instance.y + map.offsety + object.y,
 										width      = object.width,
 										height     = object.height,
 										layer      = instance.layer,
-										properties = object.properties,
-                    name = object.name
+										properties = object.properties
+
 									}
 
 									world:add(t, t.x, t.y, t.width, t.height)
@@ -52,8 +54,7 @@ return {
 								width      = map.tilewidth,
 								height     = map.tileheight,
 								layer      = instance.layer,
-                properties = tile.properties,
-                name = tile.name
+								properties = tile.properties
 							}
 
 							world:add(t, t.x, t.y, t.width, t.height)
@@ -75,13 +76,14 @@ return {
 								for _, object in ipairs(tile.objectGroup.objects) do
 									if object.properties.collidable == true then
 										local t = {
+											name       = object.name,
+											type       = object.type,
 											x          = ((x-1) * map.tilewidth  + tile.offset.x + map.offsetx) + object.x,
 											y          = ((y-1) * map.tileheight + tile.offset.y + map.offsety) + object.y,
 											width      = object.width,
 											height     = object.height,
 											layer      = layer,
-                      properties = object.properties,
-                      name = object.name
+											properties = object.properties
 										}
 
 										world:add(t, t.x, t.y, t.width, t.height)
@@ -97,8 +99,7 @@ return {
 								width      = tile.width,
 								height     = tile.height,
 								layer      = layer,
-                properties = tile.properties,
-                name = tile.name
+								properties = tile.properties
 							}
 
 							world:add(t, t.x, t.y, t.width, t.height)
@@ -118,13 +119,14 @@ return {
 					if layer.properties.collidable == true or obj.properties.collidable == true then
 						if obj.shape == "rectangle" then
 							local t = {
+								name       = obj.name,
+								type       = obj.type,
 								x          = obj.x + map.offsetx,
 								y          = obj.y + map.offsety,
 								width      = obj.width,
 								height     = obj.height,
 								layer      = layer,
-                properties = obj.properties,
-                name = obj.name
+								properties = obj.properties
 							}
 
 							if obj.gid then
@@ -137,19 +139,15 @@ return {
 					end
 				end
 			end
-
 		end
+
+		map.bump_world       = world
 		map.bump_collidables = collidables
 	end,
 
 	--- Remove layer
 	-- @param index to layer to be removed
-	-- @param world bump world the holds the tiles
-	-- @param tx Translate on X
--- @param ty Translate on Y
--- @param sx Scale on X
--- @param sy Scale on Y
-	bump_removeLayer = function(map, index, world)
+	bump_removeLayer = function(map, index)
 		local layer = assert(map.layers[index], "Layer not found: " .. index)
 		local collidables = map.bump_collidables
 
@@ -162,7 +160,7 @@ return {
 				layer.properties.collidable == true
 				or obj.properties.collidable == true
 			) then
-				world:remove(obj)
+				map.bump_world:remove(obj)
 				table.remove(collidables, i)
 			end
 		end
@@ -174,13 +172,14 @@ return {
 	-- @param ty Translate on Y
 	-- @param sx Scale on X
 	-- @param sy Scale on Y
-	bump_draw = function(map, world, tx, ty, sx, sy)
+	bump_draw = function(map, tx, ty, sx, sy)
 		lg.push()
 		lg.scale(sx or 1, sy or sx or 1)
 		lg.translate(math.floor(tx or 0), math.floor(ty or 0))
 
-		for _, collidable in pairs(map.bump_collidables) do
-			lg.rectangle("line", world:getRect(collidable))
+		local items = map.bump_world:getItems()
+		for _, item in ipairs(items) do
+			lg.rectangle("line", map.bump_world:getRect(item))
 		end
 
 		lg.pop()
